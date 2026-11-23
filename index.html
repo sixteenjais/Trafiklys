@@ -100,6 +100,14 @@
       padding: 0 12px;
     }
 
+    .btn-danger-solid {
+      background: var(--red);
+      color: #fff;
+      width: 100%;
+      height: 44px;
+      font-size: 16px;
+    }
+
     .stats {
       max-width: 600px;
       margin: 10px auto 0;
@@ -159,7 +167,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 14px;
+      padding: 10px 14px;
       border-bottom: 1px solid var(--border);
     }
 
@@ -167,39 +175,37 @@
       border-bottom: none;
     }
 
-    .student-name {
+    .student-name-btn {
+      background: transparent;
+      color: var(--text);
       font-size: 17px;
       font-weight: 500;
       flex: 1;
-      padding-right: 10px;
+      justify-content: flex-start;
+      text-align: left;
+      padding: 6px 8px 6px 0;
+      height: auto;
+      min-height: 44px;
+      border-radius: 8px;
     }
 
-    .row-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .student-name-btn:active {
+      background: rgba(0, 0, 0, 0.04);
+      transform: none;
     }
 
     .traffic-btn {
-      width: 44px;
-      height: 44px;
+      width: 46px;
+      height: 46px;
       border-radius: 50%;
       border: 3px solid rgba(0, 0, 0, 0.08);
+      flex-shrink: 0;
       transition: background-color 0.15s ease, transform 0.1s ease;
     }
 
     .status-green { background: var(--green); }
     .status-yellow { background: var(--yellow); }
     .status-red { background: var(--red); }
-
-    .delete-student {
-      background: transparent;
-      color: var(--muted);
-      font-size: 18px;
-      width: 32px;
-      height: 32px;
-      padding: 0;
-    }
 
     .empty-state {
       text-align: center;
@@ -249,7 +255,7 @@
       font-size: 16px;
     }
 
-    /* Modal til ny klasse / indsæt liste */
+    /* Modaler */
     .modal-backdrop {
       display: none;
       position: fixed;
@@ -275,12 +281,12 @@
     }
 
     .modal h3 {
-      margin: 0 0 10px;
-      font-size: 18px;
+      margin: 0 0 8px;
+      font-size: 19px;
     }
 
     .modal p {
-      margin: 0 0 12px;
+      margin: 0 0 14px;
       font-size: 14px;
       color: var(--muted);
     }
@@ -304,6 +310,17 @@
       display: flex;
       justify-content: flex-end;
       gap: 8px;
+    }
+
+    .modal-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .modal-stack .btn-secondary {
+      width: 100%;
+      height: 44px;
     }
   </style>
 </head>
@@ -357,10 +374,23 @@
     </div>
   </div>
 
+  <!-- Modal: Elev-handling (fjern elev) -->
+  <div class="modal-backdrop" id="studentActionModal">
+    <div class="modal">
+      <h3 id="studentActionTitle">Elev</h3>
+      <p>Vil du fjerne denne elev fra klasselisten?</p>
+      <div class="modal-stack">
+        <button type="button" class="btn-danger-solid" id="confirmRemoveStudentBtn">Fjern elev fra klassen</button>
+        <button type="button" class="btn-secondary" id="cancelStudentActionBtn">Annuller</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function () {
       const STORAGE_KEY = "klasse_trafiklys_data_v1";
       let memoryFallback = null;
+      let selectedStudentIndex = null;
 
       let state = {
         classes: {},
@@ -400,6 +430,8 @@
       const newClassNameInput = document.getElementById("newClassNameInput");
       const bulkModal = document.getElementById("bulkModal");
       const bulkNamesInput = document.getElementById("bulkNamesInput");
+      const studentActionModal = document.getElementById("studentActionModal");
+      const studentActionTitle = document.getElementById("studentActionTitle");
 
       function render() {
         const classNames = Object.keys(state.classes);
@@ -476,11 +508,8 @@
             const statusClass = "status-" + (student.status || "green");
             html += `
               <div class="student-row">
-                <span class="student-name">${escapeHtml(student.name)}</span>
-                <div class="row-actions">
-                  <button type="button" class="traffic-btn ${statusClass}" data-index="${index}" aria-label="Skift farve for ${escapeHtml(student.name)}"></button>
-                  <button type="button" class="delete-student" data-del="${index}" title="Fjern elev">✕</button>
-                </div>
+                <button type="button" class="student-name-btn" data-name-index="${index}">${escapeHtml(student.name)}</button>
+                <button type="button" class="traffic-btn ${statusClass}" data-index="${index}" aria-label="Skift farve for ${escapeHtml(student.name)}"></button>
               </div>
             `;
           });
@@ -514,10 +543,10 @@
           });
         });
 
-        mainContent.querySelectorAll(".delete-student").forEach((btn) => {
+        mainContent.querySelectorAll(".student-name-btn").forEach((btn) => {
           btn.addEventListener("click", () => {
-            const idx = Number(btn.getAttribute("data-del"));
-            removeStudent(idx);
+            const idx = Number(btn.getAttribute("data-name-index"));
+            openStudentActionModal(idx);
           });
         });
       }
@@ -591,11 +620,26 @@
         render();
       }
 
-      function removeStudent(index) {
+      function openStudentActionModal(index) {
         const list = state.classes[state.activeClass];
-        if (!list) return;
-        list.splice(index, 1);
-        saveState();
+        if (!list || !list[index]) return;
+        selectedStudentIndex = index;
+        studentActionTitle.textContent = list[index].name;
+        studentActionModal.classList.add("open");
+      }
+
+      function closeStudentActionModal() {
+        selectedStudentIndex = null;
+        studentActionModal.classList.remove("open");
+      }
+
+      function confirmRemoveStudent() {
+        const list = state.classes[state.activeClass];
+        if (list && selectedStudentIndex !== null && list[selectedStudentIndex]) {
+          list.splice(selectedStudentIndex, 1);
+          saveState();
+        }
+        closeStudentActionModal();
         render();
       }
 
@@ -615,6 +659,12 @@
         bulkModal.classList.remove("open");
       });
       document.getElementById("confirmBulkBtn").addEventListener("click", addBulkStudents);
+
+      document.getElementById("confirmRemoveStudentBtn").addEventListener("click", confirmRemoveStudent);
+      document.getElementById("cancelStudentActionBtn").addEventListener("click", closeStudentActionModal);
+      studentActionModal.addEventListener("click", (e) => {
+        if (e.target === studentActionModal) closeStudentActionModal();
+      });
 
       classSelect.addEventListener("change", () => {
         state.activeClass = classSelect.value;
