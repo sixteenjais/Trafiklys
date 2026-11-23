@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- iOS Web-App / Føj til hjemmeskærm indstillinger -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Trafiklys">
+    <title>Grøn, Gul, Rød – Klasse-app</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                    },
+                    colors: {
+                        iosBg: '#F2F2F7',
+                        iosCard: '#FFFFFF',
+                        iosBorder: '#E5E5EA',
+                        trafficGreen: '#22c55e',
+                        trafficYellow: '#eab308',
+                        trafficRed: '#ef4444',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Glat scrolling og iOS-lignende trykeffekter */
+        body {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        input, textarea, select {
+            user-select: text;
+        }
+        /* Skjul scrollbar men bevar scroll-funktionalitet */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Blød fjeder-animation ved tryk på trafiklys */
+        .traffic-btn {
+            transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .traffic-btn:active {
+            transform: scale(0.88);
+        }
+    </style>
+</head>
+<body class="bg-slate-200 min-h-screen flex justify-center items-start sm:py-6 font-sans text-slate-900 antialiased">
+
+    <!-- Hovedcontainer: Fuld skærm på mobil, centreret iPhone-ramme på større skærme -->
+    <div id="app-shell" class="w-full max-w-[430px] bg-iosBg min-h-screen sm:min-h-[844px] sm:h-[844px] sm:rounded-[44px] sm:shadow-2xl sm:border-[8px] sm:border-slate-900 flex flex-col relative overflow-hidden">
+        
+        <!-- TOPBAR / NAVIGATION (iOS Sticky Header) -->
+        <header class="bg-white/90 backdrop-blur-md border-b border-iosBorder px-4 pt-4 pb-3 sticky top-0 z-20">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <!-- Lille trafiklys-ikon -->
+                    <div class="flex flex-col gap-0.5 bg-slate-800 p-1.5 rounded-lg shadow-sm">
+                        <span class="w-2 h-2 rounded-full bg-trafficRed"></span>
+                        <span class="w-2 h-2 rounded-full bg-trafficYellow"></span>
+                        <span class="w-2 h-2 rounded-full bg-trafficGreen"></span>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold tracking-tight text-slate-900 leading-none">Klasseoverblik</h1>
+                        <p class="text-[11px] font-medium text-slate-400 mt-0.5">Grøn • Gul • Rød</p>
+                    </div>
+                </div>
+
+                <!-- Hurtig-knapper til klassestyring -->
+                <div class="flex items-center gap-1.5">
+                    <button onclick="openNewClassModal()" title="Opret ny klasse" class="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-600 font-semibold text-xs px-3 py-2 rounded-full transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                        <span>Ny klasse</span>
+                    </button>
+                    <button id="delete-class-btn" onclick="openDeleteClassModal()" title="Slet aktiv klasse" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 active:bg-red-100 rounded-full transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Klassevælger Dropdown + Elevtæller -->
+            <div class="flex items-center justify-between gap-2">
+                <div class="relative flex-1">
+                    <select id="class-selector" onchange="switchClass(this.value)" class="w-full appearance-none bg-iosBg hover:bg-slate-200/70 text-slate-900 font-bold text-base py-2.5 pl-3.5 pr-9 rounded-xl border border-slate-200/80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                        <!-- Udfyldes af JS -->
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                    </div>
+                </div>
+                
+                <!-- Elevtæller badge -->
+                <div id="student-count-badge" class="bg-slate-100 border border-slate-200/80 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    0 / 25 elever
+                </div>
+            </div>
+
+            <!-- Status-oversigt (Grøn / Gul / Rød tæller) -->
+            <div class="grid grid-cols-3 gap-2 mt-3">
+                <div class="bg-green-50/90 border border-green-200/70 rounded-xl px-2.5 py-1.5 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-trafficGreen"></span>
+                        <span class="text-xs font-medium text-green-900">Alt ok</span>
+                    </div>
+                    <span id="count-green" class="text-sm font-bold text-green-700">0</span>
+                </div>
+                <div class="bg-yellow-50/90 border border-yellow-200/70 rounded-xl px-2.5 py-1.5 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-trafficYellow"></span>
+                        <span class="text-xs font-medium text-yellow-900">Advarsel</span>
+                    </div>
+                    <span id="count-yellow" class="text-sm font-bold text-yellow-700">0</span>
+                </div>
+                <div class="bg-red-50/90 border border-red-200/70 rounded-xl px-2.5 py-1.5 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-trafficRed"></span>
+                        <span class="text-xs font-medium text-red-900">Forstyrrelse</span>
+                    </div>
+                    <span id="count-red" class="text-sm font-bold text-red-700">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- HURTIG TILFØJELSE AF ELEVER -->
+        <section id="student-input-section" class="px-4 pt-3 pb-2">
+            <div class="flex gap-2">
+                <form onsubmit="handleAddSingleStudent(event)" class="flex-1 flex gap-1.5">
+                    <input id="single-student-input" type="text" maxlength="35" placeholder="Tilføj elevnavn..." class="flex-1 bg-white text-sm text-slate-900 placeholder-slate-400 px-3.5 py-2.5 rounded-xl border border-iosBorder shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100">
+                    <button type="submit" id="add-single-btn" class="bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-semibold text-sm px-3.5 py-2.5 rounded-xl shadow-sm transition-all whitespace-nowrap">
+                        Tilføj
+                    </button>
+                </form>
+                <button id="open-bulk-btn" onclick="openBulkModal()" title="Indsæt liste fra Aula" class="bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 border border-iosBorder font-semibold text-xs px-3 py-2.5 rounded-xl shadow-sm flex items-center gap-1 transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z"/></svg>
+                    <span>Indsæt liste</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ELEVKORT-LISTE (Scrollable område) -->
+        <main id="student-list-container" class="flex-1 overflow-y-auto no-scrollbar px-4 py-2 space-y-2.5 pb-28">
+            <!-- Elevkort genereres dynamisk her -->
+        </main>
+
+        <!-- NOTIFIKATION / TOAST BESKED (inkl. Fortryd-knap til nulstilling) -->
+        <div id="toast-banner" class="pointer-events-none opacity-0 translate-y-3 transition-all duration-300 fixed sm:absolute bottom-24 left-4 right-4 z-30 flex justify-center">
+            <div class="pointer-events-auto bg-slate-900/95 backdrop-blur-md text-white text-sm font-medium px-4 py-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 w-full max-w-[390px]">
+                <span id="toast-message">Alle elever er sat på grøn</span>
+                <button id="toast-undo-btn" onclick="undoResetLesson()" class="hidden text-blue-400 hover:text-blue-300 font-bold text-xs uppercase tracking-wider px-2 py-1 rounded-lg bg-white/10">
+                    Fortryd
+                </button>
+            </div>
+        </div>
+
+        <!-- BUNDPANEL: NULSTIL TIME-KNAP -->
+        <footer class="bg-white/90 backdrop-blur-md border-t border-iosBorder px-4 py-3.5 sticky bottom-0 z-20">
+            <button id="reset-lesson-btn" onclick="handleResetLesson()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-base py-3.5 px-5 rounded-2xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                <span>Nulstil hele klassen til grøn</span>
+            </button>
+        </footer>
+
+        <!-- ========================================================= -->
+        <!-- MODALER (Opret klasse, Indsæt liste, Bekræft sletning)    -->
+        <!-- ========================================================= -->
+
+        <!-- 1. MODAL: Opret ny klasse -->
+        <div id="modal-new-class" class="hidden fixed sm:absolute inset-0 bg-slate-900/50 backdrop-blur-xs z-40 flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl animate-[fadeIn_0.15s_ease-out]">
+                <h2 class="text-lg font-bold text-slate-900">Opret ny klasse</h2>
+                <p class="text-xs text-slate-500 mt-1">Giv klassen et navn, f.eks. 4.A, 6.B eller Matematikhold.</p>
+                <form onsubmit="confirmCreateClass(event)" class="mt-4">
+                    <input id="new-class-name-input" type="text" maxlength="25" required placeholder="F.eks. 5.B" class="w-full bg-iosBg border border-slate-200 rounded-xl px-3.5 py-3 text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="grid grid-cols-2 gap-2.5 mt-4">
+                        <button type="button" onclick="closeModals()" class="py-3 rounded-xl font-semibold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                            Annuller
+                        </button>
+                        <button type="submit" class="py-3 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                            Opret klasse
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. MODAL: Indsæt elevliste (Bulk import) -->
+        <div id="modal-bulk-students" class="hidden fixed sm:absolute inset-0 bg-slate-900/50 backdrop-blur-xs z-40 flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-bold text-slate-900">Indsæt elevliste</h2>
+                    <span id="bulk-remaining-badge" class="text-xs font-semibold bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full">Plads til 25</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">Indsæt navne kopieret fra f.eks. Aula (ét navn pr. linje eller adskilt med komma). Maks. 25 elever i alt pr. klasse.</p>
+                <textarea id="bulk-students-textarea" rows="6" placeholder="Sofie Jensen&#10;Oliver Nielsen&#10;Alma Pedersen&#10;Noah Hansen" class="w-full mt-3 bg-iosBg border border-slate-200 rounded-xl p-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                <div class="grid grid-cols-2 gap-2.5 mt-4">
+                    <button type="button" onclick="closeModals()" class="py-3 rounded-xl font-semibold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                        Annuller
+                    </button>
+                    <button type="button" onclick="confirmBulkStudents()" class="py-3 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                        Tilføj elever
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. MODAL: Bekræft sletning af klasse -->
+        <div id="modal-delete-class" class="hidden fixed sm:absolute inset-0 bg-slate-900/50 backdrop-blur-xs z-40 flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl text-center">
+                <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+                </div>
+                <h2 class="text-lg font-bold text-slate-900">Slet klasse?</h2>
+                <p id="delete-class-prompt" class="text-sm text-slate-500 mt-1">Er du sikker på, at du vil slette klassen og alle dens elever?</p>
+                <div class="grid grid-cols-2 gap-2.5 mt-5">
+                    <button type="button" onclick="closeModals()" class="py-3 rounded-xl font-semibold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                        Behhold
+                    </button>
+                    <button type="button" onclick="confirmDeleteClass()" class="py-3 rounded-xl font-semibold text-sm text-white bg-red-600 hover:bg-red-700 transition-colors">
+                        Ja, slet klasse
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. MODAL: Bekræft nulstilling af time (hvis mange er gule/røde) -->
+        <div id="modal-confirm-reset" class="hidden fixed sm:absolute inset-0 bg-slate-900/50 backdrop-blur-xs z-40 flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl text-center">
+                <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                </div>
+                <h2 class="text-lg font-bold text-slate-900">Start ny lektion?</h2>
+                <p id="reset-prompt-text" class="text-sm text-slate-500 mt-1">Alle elever i denne klasse sættes tilbage på grøn.</p>
+                <div class="grid grid-cols-2 gap-2.5 mt-5">
+                    <button type="button" onclick="closeModals()" class="py-3 rounded-xl font-semibold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                        Annuller
+                    </button>
+                    <button type="button" onclick="executeResetLesson()" class="py-3 rounded-xl font-semibold text-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+                        Nulstil til grøn
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // =========================================================================
+        // KONSTANTER OG TILSTAND (STATE)
+        // =========================================================================
+        const STORAGE_KEY = 'klasse_trafiklys_app_v1';
+        const MAX_STUDENTS_PER_CLASS = 25;
+
+        // Status-konfiguration for trafiklyset
+        const STATUS_CONFIG = {
+            green: {
+                label: 'Alt ok',
+                next: 'yellow',
+                circleBg: 'bg-[#22c55e]',
+                ringClass: 'ring-green-200',
+                badgeBg: 'bg-green-50 text-green-700 border-green-200/80',
+                cardBorder: 'border-slate-200/80'
+            },
+            yellow: {
+                label: 'Advarsel',
+                next: 'red',
+                circleBg: 'bg-[#eab308]',
+                ringClass: 'ring-yellow-200',
+                badgeBg: 'bg-yellow-50 text-yellow-800 border-yellow-200/80',
+                cardBorder: 'border-yellow-300'
+            },
+            red: {
+                label: 'Forstyrrelse',
+                next: 'green',
+                circleBg: 'bg-[#ef4444]',
+                ringClass: 'ring-red-200',
+                badgeBg: 'bg-red-50 text-red-700 border-red-200/80',
+                cardBorder: 'border-red-300'
+            }
+        };
+
+        // App-data struktur
+        let appState = {
+            activeClassId: null,
+            classes: []
+        };
+
+        // Gemmer forrige tilstand ved nulstilling, så brugeren kan fortryde
+        let lastResetSnapshot = null;
+        let toastTimeout = null;
+
+        // =========================================================================
+        // INITIALISERING & LOCALSTORAGE
+        // =========================================================================
+        function initApp() {
+            try {
+                const savedData = localStorage.getItem(STORAGE_KEY);
+                if (savedData) {
+                    const parsed = JSON.parse(savedData);
+                    if (parsed && Array.isArray(parsed.classes) && parsed.classes.length > 0) {
+                        appState = parsed;
+                        // Sikr at activeClassId peger på en gyldig klasse
+                        if (!appState.classes.some(c => c.id === appState.activeClassId)) {
+                            appState.activeClassId = appState.classes[0].id;
+                        }
+                    } else {
+                        initEmptyState();
+                    }
+                } else {
+                    initEmptyState();
+                }
+            } catch (error) {
+                console.error('Fejl ved indlæsning fra localStorage:', error);
+                initEmptyState();
+            }
+
+            renderApp();
+        }
+
+        // Starter appen helt tom uden eksempelklasser eller elevnavne
+        function initEmptyState() {
+            appState = {
+                activeClassId: null,
+                classes: []
+            };
+        }
+
+        function saveState() {
+// ... existing code ... -->
+        function getActiveClass() {
+            if (!appState.classes || appState.classes.length === 0) return null;
+            return appState.classes.find(c => c.id === appState.activeClassId) || appState.classes[0];
+        }
+
+        // =========================================================================
+        // RENDERING AF BRUGERFLADE
+        // =========================================================================
+        function renderApp() {
+            const activeClass = getActiveClass();
+
+            renderClassSelector(activeClass);
+            renderStatsAndCounts(activeClass);
+            renderStudentList(activeClass);
+            updateInputState(activeClass);
+        }
+
+        function renderClassSelector(activeClass) {
+            const selector = document.getElementById('class-selector');
+            const deleteBtn = document.getElementById('delete-class-btn');
+
+            if (!activeClass) {
+                selector.innerHTML = `<option value="">Ingen klasse valgt</option>`;
+                selector.disabled = true;
+                deleteBtn.classList.add('opacity-30', 'pointer-events-none');
+                return;
+            }
+
+            selector.disabled = false;
+            deleteBtn.classList.remove('opacity-30', 'pointer-events-none');
+
+            selector.innerHTML = appState.classes.map(cls => {
+                const selected = cls.id === activeClass.id ? 'selected' : '';
+                return `<option value="${cls.id}" ${selected}>${escapeHtml(cls.name)} (${cls.students.length})</option>`;
+            }).join('');
+        }
+
+        function renderStatsAndCounts(activeClass) {
+            const resetBtn = document.getElementById('reset-lesson-btn');
+
+            if (!activeClass) {
+                document.getElementById('student-count-badge').textContent = `0 / ${MAX_STUDENTS_PER_CLASS} elever`;
+                document.getElementById('count-green').textContent = '0';
+                document.getElementById('count-yellow').textContent = '0';
+                document.getElementById('count-red').textContent = '0';
+                resetBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700', 'shadow-md', 'shadow-emerald-600/20');
+                resetBtn.classList.add('bg-slate-300', 'shadow-none', 'pointer-events-none');
+                return;
+            }
+
+            resetBtn.classList.remove('pointer-events-none', 'bg-slate-300');
+
+            const total = activeClass.students.length;
+            let green = 0, yellow = 0, red = 0;
+
+            activeClass.students.forEach(s => {
+                if (s.status === 'green') green++;
+                else if (s.status === 'yellow') yellow++;
+                else if (s.status === 'red') red++;
+            });
+
+            document.getElementById('student-count-badge').textContent = `${total} / ${MAX_STUDENTS_PER_CLASS} elever`;
+            document.getElementById('count-green').textContent = green;
+            document.getElementById('count-yellow').textContent = yellow;
+            document.getElementById('count-red').textContent = red;
+
+            // Opdater nulstil-knappens udseende alt efter om nogen er gule/røde
+            const hasWarnings = (yellow + red) > 0;
+            if (hasWarnings) {
+                resetBtn.classList.remove('bg-slate-400', 'shadow-none');
+                resetBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-700', 'shadow-md', 'shadow-emerald-600/20');
+            } else {
+                resetBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700', 'shadow-md', 'shadow-emerald-600/20');
+                resetBtn.classList.add('bg-slate-400', 'shadow-none');
+            }
+        }
+
+        function updateInputState(activeClass) {
+            const inputSection = document.getElementById('student-input-section');
+            const input = document.getElementById('single-student-input');
+            const btn = document.getElementById('add-single-btn');
+            const bulkBtn = document.getElementById('open-bulk-btn');
+
+            if (!activeClass) {
+                inputSection.classList.add('opacity-50', 'pointer-events-none');
+                input.disabled = true;
+                btn.disabled = true;
+                bulkBtn.disabled = true;
+                return;
+            }
+
+            inputSection.classList.remove('opacity-50', 'pointer-events-none');
+            const isFull = activeClass.students.length >= MAX_STUDENTS_PER_CLASS;
+
+            if (isFull) {
+                input.disabled = true;
+                input.placeholder = 'Klassen er fuld (maks. 25)';
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                bulkBtn.disabled = true;
+            } else {
+                input.disabled = false;
+                input.placeholder = 'Tilføj elevnavn...';
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                bulkBtn.disabled = false;
+            }
+        }
+
+        function renderStudentList(activeClass) {
+            const container = document.getElementById('student-list-container');
+
+            // TOM OPSTARTSTILSTAND (Ingen klasser oprettet endnu)
+            if (!activeClass) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-3xl p-7 text-center border border-slate-200/90 shadow-sm mt-6">
+                        <div class="w-16 h-16 rounded-2xl bg-slate-900 flex flex-col items-center justify-center gap-1.5 mx-auto mb-4 shadow-md">
+                            <span class="w-3 h-3 rounded-full bg-trafficRed"></span>
+                            <span class="w-3 h-3 rounded-full bg-trafficYellow"></span>
+                            <span class="w-3 h-3 rounded-full bg-trafficGreen"></span>
+                        </div>
+                        <h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Velkommen til Klasseoverblik</h2>
+                        <p class="text-sm text-slate-500 mt-2 leading-relaxed max-w-[270px] mx-auto">
+                            Opret din første klasse for at komme i gang. Alle klasser og elevnavne gemmes sikkert og lokalt på din egen enhed.
+                        </p>
+                        <button onclick="openNewClassModal()" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-base py-3.5 px-5 rounded-2xl shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 transition-all">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                            <span>Opret din første klasse</span>
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            // TOM KLASSE (Klasse er valgt, men har 0 elever)
+            if (activeClass.students.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-3xl p-8 text-center border border-dashed border-slate-300 mt-4">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-800">Ingen elever i ${escapeHtml(activeClass.name)}</h3>
+                        <p class="text-xs text-slate-500 mt-1 max-w-[240px] mx-auto">Tilføj elever enkeltvis i feltet ovenfor eller tryk på "Indsæt liste" for at indsætte op til 25 navne på én gang.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = activeClass.students.map((student, index) => {
+                const cfg = STATUS_CONFIG[student.status] || STATUS_CONFIG.green;
+                return `
+                    <div class="bg-white rounded-2xl px-3.5 py-2.5 shadow-xs border ${cfg.cardBorder} flex items-center justify-between gap-3 transition-colors">
+                        <!-- Venstre side: Nummer, navn og status-tekst -->
+                        <div class="flex items-center gap-3 min-w-0 flex-1">
+                            <span class="text-xs font-semibold text-slate-400 w-5 text-right shrink-0">${index + 1}.</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[15px] font-semibold text-slate-900 truncate">${escapeHtml(student.name)}</p>
+                                <span class="inline-block mt-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-md border ${cfg.badgeBg}">
+                                    ${cfg.label}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Højre side: Slet-elev knap + Stor Trafiklys-cirkel -->
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button onclick="deleteStudent('${student.id}')" title="Fjern elev" class="p-2 text-slate-300 hover:text-red-500 active:text-red-600 rounded-xl transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                            </button>
+
+                            <button 
+                                onclick="cycleStudentStatus('${student.id}')" 
+                                aria-label="Skift status for ${escapeHtml(student.name)}. Nuværende: ${cfg.label}"
+                                class="traffic-btn w-13 h-13 w-[52px] h-[52px] rounded-full ${cfg.circleBg} ring-4 ${cfg.ringClass} shadow-md flex items-center justify-center cursor-pointer focus:outline-none">
+                                <span class="w-4 h-4 rounded-full bg-white/30"></span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // =========================================================================
+        // TRAFIKLYS-INTERAKTION & NULSTILLING
+        // =========================================================================
+        function cycleStudentStatus(studentId) {
+            const activeClass = getActiveClass();
+            const student = activeClass.students.find(s => s.id === studentId);
+            if (!student) return;
+
+            const currentCfg = STATUS_CONFIG[student.status] || STATUS_CONFIG.green;
+            student.status = currentCfg.next;
+
+            // Lille haptisk feedback hvis enheden understøtter det
+            if (navigator.vibrate) {
+                navigator.vibrate(15);
+            }
+
+            saveState();
+            renderApp();
+        }
+
+        function handleResetLesson() {
+            const activeClass = getActiveClass();
+            if (!activeClass || activeClass.students.length === 0) {
+                showToast('Der er ingen elever at nulstille.');
+                return;
+            }
+
+            const nonGreenCount = activeClass.students.filter(s => s.status !== 'green').length;
+            if (nonGreenCount === 0) {
+                showToast('Alle elever er allerede på grøn.');
+                return;
+            }
+
+            // Hvis mere end 2 elever har gul/rød status, vis en hurtig bekræftelsesboks
+            if (nonGreenCount > 2) {
+                document.getElementById('reset-prompt-text').textContent = 
+                    `${nonGreenCount} elever i ${activeClass.name} står på gul eller rød. Vil du sætte alle tilbage på grøn?`;
+                document.getElementById('modal-confirm-reset').classList.remove('hidden');
+            } else {
+                executeResetLesson();
+            }
+        }
+
+        function executeResetLesson() {
+            closeModals();
+            const activeClass = getActiveClass();
+            if (!activeClass) return;
+
+            // Gem snapshot så læreren kan fortryde med ét tryk
+            lastResetSnapshot = {
+                classId: activeClass.id,
+                statuses: activeClass.students.map(s => ({ id: s.id, status: s.status }))
+            };
+
+            activeClass.students.forEach(s => {
+                s.status = 'green';
+            });
+
+            if (navigator.vibrate) {
+                navigator.vibrate([20, 30, 20]);
+            }
+
+            saveState();
+            renderApp();
+            showToast(`Ny lektion: Alle i ${activeClass.name} er på grøn`, true);
+        }
+
+        function undoResetLesson() {
+            if (!lastResetSnapshot) return;
+            const targetClass = appState.classes.find(c => c.id === lastResetSnapshot.classId);
+            if (targetClass) {
+                lastResetSnapshot.statuses.forEach(saved => {
+                    const student = targetClass.students.find(s => s.id === saved.id);
+                    if (student) student.status = saved.status;
+                });
+                saveState();
+                renderApp();
+            }
+            lastResetSnapshot = null;
+            hideToast();
+        }
+
+        // =========================================================================
+        // KLASSESTYRING (OPRET, SKIFT, SLET)
+        // =========================================================================
+        function switchClass(classId) {
+            appState.activeClassId = classId;
+            saveState();
+            renderApp();
+        }
+
+        function openNewClassModal() {
+            const modal = document.getElementById('modal-new-class');
+            const input = document.getElementById('new-class-name-input');
+            input.value = '';
+            modal.classList.remove('hidden');
+            setTimeout(() => input.focus(), 50);
+        }
+
+        function confirmCreateClass(event) {
+            event.preventDefault();
+            const input = document.getElementById('new-class-name-input');
+            const name = input.value.trim();
+            if (!name) return;
+
+            const newClass = {
+                id: generateId(),
+                name: name,
+                students: []
+            };
+
+            appState.classes.push(newClass);
+            appState.activeClassId = newClass.id;
+            saveState();
+            closeModals();
+            renderApp();
+            showToast(`Klassen "${name}" er oprettet`);
+        }
+
+        function openDeleteClassModal() {
+            const activeClass = getActiveClass();
+            if (!activeClass) return;
+
+            document.getElementById('delete-class-prompt').textContent = 
+                `Er du sikker på, at du vil slette "${activeClass.name}" og alle ${activeClass.students.length} elever i klassen?`;
+            document.getElementById('modal-delete-class').classList.remove('hidden');
+        }
+
+        function confirmDeleteClass() {
+            const activeClass = getActiveClass();
+            if (!activeClass) return;
+            const deletedName = activeClass.name;
+
+            appState.classes = appState.classes.filter(c => c.id !== activeClass.id);
+            appState.activeClassId = appState.classes.length > 0 ? appState.classes[0].id : null;
+
+            saveState();
+            closeModals();
+            renderApp();
+            showToast(`Klassen "${deletedName}" blev slettet`);
+        }
+
+        // =========================================================================
+        // ELEVHÅNDTERING (ENKELTVIS, INDSÆT LISTE, SLET)
+        // =========================================================================
+        function handleAddSingleStudent(event) {
+            event.preventDefault();
+            const activeClass = getActiveClass();
+            if (!activeClass) return;
+
+            if (activeClass.students.length >= MAX_STUDENTS_PER_CLASS) {
+                showToast(`Maks. ${MAX_STUDENTS_PER_CLASS} elever pr. klasse.`);
+                return;
+            }
+
+            const input = document.getElementById('single-student-input');
+            const name = input.value.trim();
+            if (!name) return;
+
+            activeClass.students.push({
+                id: generateId(),
+                name: name,
+                status: 'green'
+            });
+
+            input.value = '';
+            saveState();
+            renderApp();
+
+            // Rul ned til bunden af listen så den nye elev ses
+            const listContainer = document.getElementById('student-list-container');
+            listContainer.scrollTop = listContainer.scrollHeight;
+        }
+
+        function openBulkModal() {
+            const activeClass = getActiveClass();
+            if (!activeClass) return;
+
+            const remaining = MAX_STUDENTS_PER_CLASS - activeClass.students.length;
+
+            if (remaining <= 0) {
+                showToast(`Klassen har allerede ${MAX_STUDENTS_PER_CLASS} elever.`);
+                return;
+            }
+
+            document.getElementById('bulk-remaining-badge').textContent = `Plads til ${remaining}`;
+            const textarea = document.getElementById('bulk-students-textarea');
+            textarea.value = '';
+            document.getElementById('modal-bulk-students').classList.remove('hidden');
+            setTimeout(() => textarea.focus(), 50);
+        }
+
+        function confirmBulkStudents() {
+            const activeClass = getActiveClass();
+            const remaining = MAX_STUDENTS_PER_CLASS - activeClass.students.length;
+            const rawText = document.getElementById('bulk-students-textarea').value;
+
+            // Opdel på linjeskift eller komma, fjern tomme linjer og evt. nummerering foran navne
+            const names = rawText
+                .split(/[\n,]+/)
+                .map(n => n.replace(/^\d+[\.\)\-\s]+/, '').trim())
+                .filter(n => n.length > 0);
+
+            if (names.length === 0) {
+                closeModals();
+                return;
+            }
+
+            const namesToAdd = names.slice(0, remaining);
+            namesToAdd.forEach(name => {
+                activeClass.students.push({
+                    id: generateId(),
+                    name: name.substring(0, 35),
+                    status: 'green'
+                });
+            });
+
+            saveState();
+            closeModals();
+            renderApp();
+
+            if (names.length > remaining) {
+                showToast(`Tilføjede ${namesToAdd.length} elever (maks. 25 nået).`);
+            } else {
+                showToast(`${namesToAdd.length} elever tilføjet til ${activeClass.name}`);
+            }
+        }
+
+        function deleteStudent(studentId) {
+            const activeClass = getActiveClass();
+            activeClass.students = activeClass.students.filter(s => s.id !== studentId);
+            saveState();
+            renderApp();
+        }
+
+        // =========================================================================
+        // HJÆLPEFUNKTIONER (MODALER, TOAST & SIKKERHED)
+        // =========================================================================
+        function closeModals() {
+            document.getElementById('modal-new-class').classList.add('hidden');
+            document.getElementById('modal-bulk-students').classList.add('hidden');
+            document.getElementById('modal-delete-class').classList.add('hidden');
+            document.getElementById('modal-confirm-reset').classList.add('hidden');
+        }
+
+        function showToast(message, showUndo = false) {
+            const banner = document.getElementById('toast-banner');
+            const msgEl = document.getElementById('toast-message');
+            const undoBtn = document.getElementById('toast-undo-btn');
+
+            msgEl.textContent = message;
+            if (showUndo) {
+                undoBtn.classList.remove('hidden');
+            } else {
+                undoBtn.classList.add('hidden');
+            }
+
+            banner.classList.remove('opacity-0', 'translate-y-3', 'pointer-events-none');
+            banner.classList.add('opacity-100', 'translate-y-0');
+
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                hideToast();
+            }, showUndo ? 5000 : 2800);
+        }
+
+        function hideToast() {
+            const banner = document.getElementById('toast-banner');
+            banner.classList.add('opacity-0', 'translate-y-3', 'pointer-events-none');
+            banner.classList.remove('opacity-100', 'translate-y-0');
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Luk modaler ved tryk på Escape-tasten
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModals();
+        });
+
+        // Start appen når siden er indlæst
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
